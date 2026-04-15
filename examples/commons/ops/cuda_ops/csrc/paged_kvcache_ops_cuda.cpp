@@ -308,7 +308,6 @@ PYBIND11_MODULE(paged_kvcache_ops, m) {
     .def("is_busy_offloading", &kvcache::GPUKVCacheManagerImpl::is_busy_offloading)
     .def("init_random_offload_status", &kvcache::GPUKVCacheManagerImpl::init_random_offload_status)
   ;
-  m.attr("GPUKVCacheMangerImpl") = m.attr("GPUKVCacheManagerImpl");
 
   py::class_<kvcache::KVOnloadHandle>(m, "KVOnloadHandle")
     .def(py::init<>())
