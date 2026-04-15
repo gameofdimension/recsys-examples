@@ -282,7 +282,7 @@ PYBIND11_MODULE(paged_kvcache_ops, m) {
     .def("init_random_kvdata", &kvcache::HostKVStorageImpl::init_random_kvdata)
   ;
 
-  py::class_<kvcache::GPUKVCacheMangerImpl>(m, "GPUKVCacheMangerImpl")
+  py::class_<kvcache::GPUKVCacheManagerImpl>(m, "GPUKVCacheManagerImpl")
     .def(py::init<int, int, int, int, int, int, int, int, int, int, at::Tensor, kvcache::HostKVStorageImpl&, size_t, int, int, int, bool>(),
          py::arg("num_layers"),
          py::arg("num_kv_heads"),
@@ -301,13 +301,14 @@ PYBIND11_MODULE(paged_kvcache_ops, m) {
          py::arg("num_offload_buffer_chunks") = 8,
          py::arg("num_memcpy_workers") = 4,
          py::arg("enable_nvcomp") = false)
-    .def("get_total_cache_length", &kvcache::GPUKVCacheMangerImpl::get_total_cache_length)
-    .def("evict_all", &kvcache::GPUKVCacheMangerImpl::evict_all)
-    .def("onload_kvcache", &kvcache::GPUKVCacheMangerImpl::onload_kvcache, py::call_guard<py::gil_scoped_release>())
-    .def("offload_kvcache", &kvcache::GPUKVCacheMangerImpl::offload_kvcache, py::call_guard<py::gil_scoped_release>())
-    .def("is_busy_offloading", &kvcache::GPUKVCacheMangerImpl::is_busy_offloading)
-    .def("init_random_offload_status", &kvcache::GPUKVCacheMangerImpl::init_random_offload_status)
+    .def("get_total_cache_length", &kvcache::GPUKVCacheManagerImpl::get_total_cache_length)
+    .def("evict_all", &kvcache::GPUKVCacheManagerImpl::evict_all)
+    .def("onload_kvcache", &kvcache::GPUKVCacheManagerImpl::onload_kvcache, py::call_guard<py::gil_scoped_release>())
+    .def("offload_kvcache", &kvcache::GPUKVCacheManagerImpl::offload_kvcache, py::call_guard<py::gil_scoped_release>())
+    .def("is_busy_offloading", &kvcache::GPUKVCacheManagerImpl::is_busy_offloading)
+    .def("init_random_offload_status", &kvcache::GPUKVCacheManagerImpl::init_random_offload_status)
   ;
+  m.attr("GPUKVCacheMangerImpl") = m.attr("GPUKVCacheManagerImpl");
 
   py::class_<kvcache::KVOnloadHandle>(m, "KVOnloadHandle")
     .def(py::init<>())
@@ -320,7 +321,7 @@ PYBIND11_MODULE(paged_kvcache_ops, m) {
 
   py::class_<kvcache::KVOffloadHandle>(m, "KVOffloadHandle")
     .def(py::init<>())
-    .def(py::init<int, kvcache::GPUKVCacheMangerImpl&, bool>(), py::arg("num_layers"), py::arg("gpu_kv_mgr"), py::arg("has_offload"))
+    .def(py::init<int, kvcache::GPUKVCacheManagerImpl&, bool>(), py::arg("num_layers"), py::arg("gpu_kv_mgr"), py::arg("has_offload"))
     .def("mark_ready", &kvcache::KVOffloadHandle::mark_ready)
     .def("set_no_offload", &kvcache::KVOffloadHandle::set_no_offload)
   ;

@@ -313,7 +313,7 @@ KVOffloadHandle::KVOffloadHandle() : gpu_kv_mgr(nullptr), no_offload(true) { }
 
 KVOffloadHandle::KVOffloadHandle(
     int num_layers,
-    GPUKVCacheMangerImpl& gpu_kv_mgr,
+    GPUKVCacheManagerImpl& gpu_kv_mgr,
     bool has_offload
 )
 : num_layers(num_layers)
@@ -522,7 +522,7 @@ void HostKVStorageImpl::init_random_kvdata(int64_t user_id, size_t num_tokens) {
     _uid_to_length[user_id] = num_chunks * this->chunk_size;
 }
 
-GPUKVCacheMangerImpl::GPUKVCacheMangerImpl(
+GPUKVCacheManagerImpl::GPUKVCacheManagerImpl(
     int num_layers,
     int num_kv_heads,
     int kv_headdim,
@@ -589,10 +589,10 @@ GPUKVCacheMangerImpl::GPUKVCacheMangerImpl(
     this->queued_offload_tokens = 0;
     this->queued_offload_limits = max_queued_offload_tokens;
     this->offload_busy_.store(false);
-    this->offload_worker = std::thread(&GPUKVCacheMangerImpl::offload_loop, this);
+    this->offload_worker = std::thread(&GPUKVCacheManagerImpl::offload_loop, this);
 };
 
-GPUKVCacheMangerImpl::~GPUKVCacheMangerImpl() {
+GPUKVCacheManagerImpl::~GPUKVCacheManagerImpl() {
     {
         std::unique_lock<std::mutex> lock(offload_task_mutex_);
         this->terminate_ = true;
@@ -605,7 +605,7 @@ GPUKVCacheMangerImpl::~GPUKVCacheMangerImpl() {
     cudaFree(onload_device_buffers);
 }
 
-int64_t GPUKVCacheMangerImpl::getUIdToEvict(std::unordered_set<int64_t> extra_freezed_uids) {
+int64_t GPUKVCacheManagerImpl::getUIdToEvict(std::unordered_set<int64_t> extra_freezed_uids) {
     while (true) {
         int num_offloading_uids = 0;
         {
@@ -628,7 +628,7 @@ int64_t GPUKVCacheMangerImpl::getUIdToEvict(std::unordered_set<int64_t> extra_fr
     return _lru_list.back();
 };
 
-std::vector<int32_t>& GPUKVCacheMangerImpl::alloc(int64_t uid, int new_total_length, std::unordered_set<int64_t> freezed_uids) {
+std::vector<int32_t>& GPUKVCacheManagerImpl::alloc(int64_t uid, int new_total_length, std::unordered_set<int64_t> freezed_uids) {
     int cur_cached_start = 0;
     int cur_cached_len = 0;
     // int padding_last_page = 0;
@@ -669,7 +669,7 @@ std::vector<int32_t>& GPUKVCacheMangerImpl::alloc(int64_t uid, int new_total_len
     return page_ids;
 };
 
-std::vector<int32_t> GPUKVCacheMangerImpl::get_total_cache_length(std::vector<int64_t>& uids) {
+std::vector<int32_t> GPUKVCacheManagerImpl::get_total_cache_length(std::vector<int64_t>& uids) {
     int batch_size = uids.size();
     std::vector<int32_t> total_cached_lengths(batch_size);
     for (int seq_idx = 0; seq_idx < batch_size; seq_idx++) {
@@ -685,7 +685,7 @@ std::vector<int32_t> GPUKVCacheMangerImpl::get_total_cache_length(std::vector<in
     return total_cached_lengths;
 };
     
-void GPUKVCacheMangerImpl::evict(int64_t uid)
+void GPUKVCacheManagerImpl::evict(int64_t uid)
 {
     auto const tableIt = _lru_lookup_table.find(uid);
     assert(_lru_lookup_table.end() != tableIt);
@@ -704,7 +704,7 @@ void GPUKVCacheMangerImpl::evict(int64_t uid)
     // }
 };
 
-void GPUKVCacheMangerImpl::evict_all()
+void GPUKVCacheManagerImpl::evict_all()
 {
     std::queue<int64_t> empty_pages;
     std::swap(_empty_pages, empty_pages);
@@ -727,7 +727,7 @@ void GPUKVCacheMangerImpl::evict_all()
     this->host_kv_mgr->_uid_to_mempool.clear();
 };
 
-void GPUKVCacheMangerImpl::invalid(int64_t uid) {
+void GPUKVCacheManagerImpl::invalid(int64_t uid) {
     auto const tableIt = _lru_lookup_table.find(uid);
     if (_lru_lookup_table.end() != tableIt) {
         _lru_list.erase(tableIt->second);
@@ -744,7 +744,7 @@ void GPUKVCacheMangerImpl::invalid(int64_t uid) {
     }
 };
 
-bool GPUKVCacheMangerImpl::retain(int64_t uid)
+bool GPUKVCacheManagerImpl::retain(int64_t uid)
 {
     auto const tableIt = _lru_lookup_table.find(uid);
     bool found = (_lru_lookup_table.end() != tableIt);
@@ -756,15 +756,15 @@ bool GPUKVCacheMangerImpl::retain(int64_t uid)
     return found;
 };
 
-uint16_t *GPUKVCacheMangerImpl::get_cache_table(void) {
+uint16_t *GPUKVCacheManagerImpl::get_cache_table(void) {
     return cache_table;
 };
 
-uint16_t *GPUKVCacheMangerImpl::get_cache_table_by_layer(int layer_idx) {
+uint16_t *GPUKVCacheManagerImpl::get_cache_table_by_layer(int layer_idx) {
     return cache_table + layer_idx * layer_stride;
 };
 
-void GPUKVCacheMangerImpl::onload_kvcache(
+void GPUKVCacheManagerImpl::onload_kvcache(
     std::vector<int64_t>& user_ids, 
     KVOnloadHandle& onloadhandle) {
     const c10::cuda::OptionalCUDAGuard device_guard(this->device);
@@ -834,7 +834,7 @@ void GPUKVCacheMangerImpl::onload_kvcache(
     }
 };
 
-void GPUKVCacheMangerImpl::offload_kvcache(
+void GPUKVCacheManagerImpl::offload_kvcache(
     KVOffloadHandle& offload_handle,
     at::Tensor offload_user_ids,      // host
     at::Tensor offload_page_ids,      // gpu
@@ -889,15 +889,15 @@ void GPUKVCacheMangerImpl::offload_kvcache(
     offload_task_cv_.notify_one();
 };
 
-bool GPUKVCacheMangerImpl::is_busy_offloading() {
+bool GPUKVCacheManagerImpl::is_busy_offloading() {
     return !offload_task_queue.empty() || this->offload_busy_.load();
 }
 
-void GPUKVCacheMangerImpl::init_random_offload_status(int64_t user_id, size_t length) {
+void GPUKVCacheManagerImpl::init_random_offload_status(int64_t user_id, size_t length) {
     _uid_to_offloaded_length[user_id] = length;
 }
 
-void GPUKVCacheMangerImpl::offload_loop()
+void GPUKVCacheManagerImpl::offload_loop()
 {
     const c10::cuda::OptionalCUDAGuard device_guard(this->device);
     int dev_id = 0;
@@ -1100,7 +1100,7 @@ void GPUKVCacheMangerImpl::offload_loop()
 }
 
 void prepare_kvcache(
-    GPUKVCacheMangerImpl& gpu_mgr,
+    GPUKVCacheManagerImpl& gpu_mgr,
     HostKVStorageImpl& host_mgr,
     std::vector<int64_t>& user_ids,
     std::vector<int64_t>& total_hist_lens, // all histo w/o candi

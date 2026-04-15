@@ -66,7 +66,7 @@ class AsyncHSTUKVCacheManager:
             self.page_size,
             self.chunk_size,
         )
-        self.gpu_kvcache_mgr = paged_kvcache_ops.GPUKVCacheMangerImpl(
+        self.gpu_kvcache_mgr = paged_kvcache_ops.GPUKVCacheManagerImpl(
             self.num_layers,
             self.num_heads,
             self.head_dim,

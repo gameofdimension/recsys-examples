@@ -136,7 +136,7 @@ private:
     const nvcompBatchedANSDecompressOpts_t k_decomp_opts_ = nvcompBatchedANSDecompressDefaultOpts;
 };
 
-class GPUKVCacheMangerImpl;
+class GPUKVCacheManagerImpl;
 class HostKVStorageImpl;
 
 class KVOnloadHandle {
@@ -164,7 +164,7 @@ public:
     KVOffloadHandle();
     KVOffloadHandle(
         int num_layers,
-        GPUKVCacheMangerImpl& gpu_kv_mgr,
+        GPUKVCacheManagerImpl& gpu_kv_mgr,
         bool has_offload
     );
 
@@ -172,7 +172,7 @@ public:
     void set_no_offload();
 
 public:
-    GPUKVCacheMangerImpl* gpu_kv_mgr;
+    GPUKVCacheManagerImpl* gpu_kv_mgr;
     int num_layers;
     std::vector<cudaEvent_t> ready_event;
     int *host_ready;
@@ -227,10 +227,10 @@ public:
     std::mutex host_kvcache_mutex_;
 };
 
-class GPUKVCacheMangerImpl
+class GPUKVCacheManagerImpl
 {
 public:
-    GPUKVCacheMangerImpl(
+    GPUKVCacheManagerImpl(
         int num_layers,
         int num_kv_heads,
         int kv_headdim,
@@ -248,7 +248,7 @@ public:
         int offload_buffer_chunks = 8,
         int num_memcpy_workers = 4,
         bool enable_nvcomp = false);
-    ~GPUKVCacheMangerImpl();
+    ~GPUKVCacheManagerImpl();
 
     int64_t getUIdToEvict(std::unordered_set<int64_t> extra_freezed_uids);
 
@@ -362,7 +362,7 @@ public:
 };
 
 void prepare_kvcache(
-    GPUKVCacheMangerImpl& gpu_mgr,
+    GPUKVCacheManagerImpl& gpu_mgr,
     HostKVStorageImpl& host_mgr,
     std::vector<int64_t>& user_ids,
     std::vector<int64_t>& total_hist_lens, // all histo w/o candi
