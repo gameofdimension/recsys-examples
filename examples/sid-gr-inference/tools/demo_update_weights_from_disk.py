@@ -19,7 +19,9 @@ probes around each step:
    9. POST /generate                                    (output B: must DIFFER from A)
   10. pause -> flush -> update_weights_from_disk -> continue
                                                        (restore the ORIGINAL checkpoint)
-  11. POST /generate                                    (output C: must EQUAL A)
+  11. GET  /get_weights_by_name                         (sample must match the
+      original -- restore verified at the weight level)
+  12. POST /generate                                    (output C: must EQUAL A)
 
 Pair it with tools/perturb_checkpoint.py to produce a visibly-different
 checkpoint (every weight +1.0):
@@ -407,14 +409,24 @@ def main() -> None:
         label="restore",
     )
 
-    # --- 11. workload output after restore: must match the original ---------
+    # --- 11. weight sample after restore: must match the original sample ----
+    restored_sample = _weight_sample(client, args.param_name, args.truncate_size)
+    print(f"11. {args.param_name} (restored): {restored_sample}")
+    if restored_sample != before_sample:
+        raise SystemExit(
+            f"weight sample DIFFERS from the original after restore -- "
+            f"expected {before_sample}, got {restored_sample}"
+        )
+    print("   -> weight sample matches the original (restore verified)")
+
+    # --- 12. workload output after restore: must match the original ---------
     output_c = _generate(
         client,
         input_ids=input_ids,
         max_new_tokens=_PROBE_MAX_NEW_TOKENS,
         beam_width=_PROBE_BEAM_WIDTH,
     )
-    print(f"11. generate (restored weights): output_ids={output_c}")
+    print(f"12. generate (restored weights): output_ids={output_c}")
     if output_c != output_a:
         raise SystemExit(
             "output DIFFERS from the original after restoring weights -- "
