@@ -24,8 +24,8 @@ Flow (workload-verified like the disk demo):
    1. GET  /get_weight_version + /get_weights_by_name   (record "before" state)
    2. POST /generate                                    (output A: original weights)
    3. POST /pause_generation                            (mode=abort)
-   4. POST /generate (short client timeout)             (probe: NO service while
-      paused -- the call hangs and times out)
+   4. POST /generate                                    (probe: NO service while
+      paused -- the server rejects it with 503 code=paused)
    5. GET  /flush_cache                                (retry until 200, slime-style)
    6. POST /update_weights_from_tensor  x N chunks      (+ one empty bucket)
    7. POST /continue_generation
@@ -221,13 +221,16 @@ def _probe_no_service_while_paused(
     input_ids: Sequence[int],
     timeout_s: float = 3.0,
 ) -> None:
-    """A synchronous /generate while paused must NOT complete.
+    """A synchronous /generate while paused must be rejected, not served.
 
-    /generate submits the request and then waits server-side for the result;
-    while paused the worker never ticks, so the call can only hang. A short
-    client-side timeout turns that hang into the "no service" proof. The
-    probe request is tiny (n=1) and runs harmlessly with the new weights once
-    continue_generation resumes the worker.
+    While paused for a weight update the server admits no new inference:
+    /generate (like /submit and /submit_many) is rejected with 503
+    (code=paused, retryable=true) so callers retry shortly instead of being
+    stranded in the worker's pending buffer until continue_generation. That
+    503 IS the "no service while paused" proof -- and it returns promptly,
+    unlike the old accept-and-queue behavior where the call hung until the
+    update completed. The probe request is tiny (n=1) and, being rejected, is
+    never queued, so it leaves no work behind for continue_generation.
     """
 
     try:
@@ -246,13 +249,22 @@ def _probe_no_service_while_paused(
             timeout_s=timeout_s,
         )
     except TimeoutError:
-        result = HTTPResult(status=0, body={})
-    if result.status == 0:
-        print(
-            f"   paused probe: /generate did not respond within {timeout_s}s "
-            "-> no service while paused"
+        raise SystemExit(
+            f"[paused probe] /generate hung for {timeout_s}s instead of being "
+            "rejected with 503 -- the server did not reject inference while paused"
         )
-        return
+    if result.status == 503:
+        code = (result.body.get("error") or {}).get("code")
+        if code == "paused":
+            print(
+                "   paused probe: /generate rejected with 503 (code=paused) "
+                "-> no service while paused"
+            )
+            return
+        raise SystemExit(
+            "[paused probe] got 503 but unexpected error code "
+            f"{code!r}: {json.dumps(result.body, ensure_ascii=False)[:400]}"
+        )
     if result.status // 100 == 2:
         raise SystemExit(
             "[paused probe] /generate SUCCEEDED while paused -- "
